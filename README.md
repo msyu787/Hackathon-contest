@@ -1,4 +1,4 @@
-### Hanyang University × Hyundai NGV AI Agent Hackathon for solving real-world manufacturing challenges  
+### 1. Hanyang University × Hyundai NGV AI Agent Hackathon for solving real-world manufacturing challenges  
 ### Grand prize
 
 
@@ -12,7 +12,7 @@
 
 
 
-### AWS KIROTHON Hackathon (Hanyang university)
+### 2. AWS KIROTHON Hackathon (Hanyang university)
 ### Grand prize
 
 
