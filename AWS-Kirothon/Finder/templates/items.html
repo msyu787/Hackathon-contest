@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}분실물 목록 - Finder{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>📋 분실물 목록</h1>
+    <p>등록된 분실물을 확인하세요.</p>
+</section>
+
+<div class="gallery-grid">
+    {% for item in items %}
+    <a href="/items/{{ item.id }}" class="gallery-link">
+        <div class="gallery-card">
+            <img src="{{ item.image_path }}" alt="{{ item.caption_text }}" class="gallery-img">
+            <div class="gallery-info">
+                <span class="gallery-tag color-tag">{{ item.caption_color }}</span>
+                <span class="gallery-tag">{{ item.category }}</span>
+                {% if item.caption_details %}
+                <p>🔎 {{ item.caption_details }}</p>
+                {% endif %}
+                <p>📍 {{ item.location }}</p>
+                <p>🕐 {{ item.found_at.strftime('%Y-%m-%d %H:%M') }}</p>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endblock %}

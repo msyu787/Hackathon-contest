@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}채팅 - Finder{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <div class="chat-header">
+        <a href="/" class="back-btn">← 목록으로</a>
+        <span id="roomTitle">채팅방 #{{ room_id }}</span>
+        <button id="completeBtn" class="btn-complete" onclick="markComplete()">찾기완료</button>
+    </div>
+    <div class="chat-messages" id="messages"></div>
+    <div class="chat-input">
+        <label class="img-btn" for="imgUpload" title="사진 전송">📷</label>
+        <input type="file" id="imgUpload" accept="image/*" style="display:none"
+               onchange="uploadImage(this)">
+        <input type="text" id="msgInput" placeholder="메시지를 입력하세요..."
+               onkeypress="if(event.key==='Enter') sendMessage()">
+        <button onclick="sendMessage()">전송</button>
+    </div>
+    <div id="verifyBar" class="verify-bar" style="display:none">
+        <span>⚠️ 이 물품은 본인인증이 필요합니다.</span>
+        <button id="verifyBtn" class="btn-verify" onclick="showVerifyForm()">🔐 인증 요청</button>
+    </div>
+    <div class="meeting-bar">
+        <button id="meetingBtn" class="btn-meeting" onclick="showMeetingForm()">📅 약속 잡기</button>
+    </div>
+</div>
+
+<!-- 인증 모달 -->
+<div id="verifyModal" class="modal" style="display:none">
+    <div class="modal-content">
+        <h3>🔐 본인인증</h3>
+        <div class="form-group">
+            <label>학번</label>
+            <input type="text" id="vStudentId" placeholder="예: 20231234">
+        </div>
+        <div class="form-group">
+            <label>이름</label>
+            <input type="text" id="vName" placeholder="예: 홍길동">
+        </div>
+        <div class="form-group">
+            <label>생년월일</label>
+            <input type="date" id="vBirth">
+        </div>
+        <div class="modal-buttons">
+            <button class="btn-verify" onclick="submitVerify()">인증하기</button>
+            <button class="btn-cancel" onclick="closeVerifyForm()">취소</button>
+        </div>
+    </div>
+</div>
+
+<!-- 약속 모달 -->
+<div id="meetingModal" class="modal" style="display:none">
+    <div class="modal-content">
+        <h3>📅 약속 잡기</h3>
+        <div class="form-group">
+            <label>날짜</label>
+            <input type="date" id="mDate">
+        </div>
+        <div class="form-group">
+            <label>시간</label>
+            <input type="time" id="mTime">
+        </div>
+        <div class="form-group">
+            <label>장소 (선택)</label>
+            <input type="text" id="mPlace" placeholder="예: 1공 1층 로비">
+        </div>
+        <div class="modal-buttons">
+            <button class="btn-meeting" onclick="submitMeeting()">약속 보내기</button>
+            <button class="btn-cancel" onclick="closeMeetingForm()">취소</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const roomId = {{ room_id }};
+const userId = {{ user_id }};
+const messagesDiv = document.getElementById('messages');
+
+function formatTime(isoStr) {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+
+function appendMessage(senderId, content, msgType, createdAt, msgId, isRead) {
+    const div = document.createElement('div');
+    const isMine = senderId === userId;
+    div.className = 'message ' + (isMine ? 'mine' : 'theirs');
+    if (msgId) div.dataset.msgId = msgId;
+
+    let body = '';
+    if (msgType === 'image') {
+        body = `<img src="${content}" class="chat-img" onclick="window.open(this.src)">`;
+    } else {
+        body = `<p>${content}</p>`;
+    }
+
+    const readMark = isMine ? `<span class="read-mark" data-msg-id="${msgId}">${isRead ? '읽음' : ''}</span>` : '';
+    const time = `<span class="msg-time">${formatTime(createdAt)}</span>`;
+
+    div.innerHTML = `<span class="sender">${isMine ? '나' : '상대방'}</span>${body}<div class="msg-meta">${readMark}${time}</div>`;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function appendSystem(content) {
+    const div = document.createElement('div');
+    div.className = 'message system';
+    div.innerHTML = `<p>${content}</p>`;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// 채팅방 정보 로드 (물품명 표시)
+async function loadRoomInfo() {
+    const res = await fetch(`/chat/rooms/${roomId}/info`);
+    if (res.ok) {
+        const info = await res.json();
+        document.getElementById('roomTitle').textContent = `${info.item_name} 채팅`;
+        appendSystem(`🔍 ${info.item_name} 대화가 시작되었습니다.`);
+        if (info.item_image) {
+            const imgDiv = document.createElement('div');
+            imgDiv.className = 'message system';
+            imgDiv.innerHTML = `<p>📷 습득된 물품 사진</p><img src="${info.item_image}" class="chat-img" onclick="window.open(this.src)">`;
+            messagesDiv.appendChild(imgDiv);
+        }
+        if (info.item_location) {
+            appendSystem(`📍 발견 장소: ${info.item_location}`);
+        }
+        // 지갑/핸드폰이면 인증 바 표시 (찾는 사람에게만)
+        if (info.requires_verification && userId === info.seeker_id) {
+            document.getElementById('verifyBar').style.display = 'flex';
+            document.getElementById('meetingBtn').disabled = true;
+            document.getElementById('meetingBtn').textContent = '🔒 인증 후 약속 잡기 가능';
+        }
+    }
+}
+
+// 기존 메시지 로드
+async function loadMessages() {
+    const res = await fetch(`/chat/rooms/${roomId}/messages`);
+    if (res.ok) {
+        const msgs = await res.json();
+        msgs.forEach(m => appendMessage(m.sender_id, m.content, m.message_type, m.created_at, m.id, m.is_read));
+    }
+}
+
+// WebSocket 연결
+const wsUrl = `ws://${window.location.host}/chat/ws/${roomId}?sender_id=${userId}`;
+const ws = new WebSocket(wsUrl);
+
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'system') {
+        appendSystem(data.content);
+    } else if (data.type === 'read') {
+        // 읽음 표시 업데이트
+        data.message_ids.forEach(id => {
+            const el = document.querySelector(`.read-mark[data-msg-id="${id}"]`);
+            if (el) el.textContent = '읽음';
+        });
+    } else {
+        appendMessage(data.sender_id, data.content, data.message_type, data.created_at, data.id, data.is_read);
+        // 상대방 메시지 수신 시 읽음 처리 요청
+        if (data.sender_id !== userId) {
+            ws.send(JSON.stringify({type: 'read'}));
+        }
+    }
+};
+
+ws.onclose = () => appendSystem('연결이 종료되었습니다.');
+
+function sendMessage() {
+    const input = document.getElementById('msgInput');
+    const content = input.value.trim();
+    if (!content) return;
+    ws.send(JSON.stringify({type: 'message', content}));
+    input.value = '';
+}
+
+async function uploadImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`/chat/rooms/${roomId}/upload?sender_id=${userId}`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (res.ok) {
+        const data = await res.json();
+        // WebSocket으로 이미지 메시지 브로드캐스트
+        ws.send(JSON.stringify({
+            type: 'image',
+            image_url: data.image_url,
+            id: data.id,
+            created_at: data.created_at,
+        }));
+    } else {
+        alert('이미지 업로드 실패');
+    }
+    input.value = '';
+}
+
+function showVerifyForm() {
+    document.getElementById('verifyModal').style.display = 'flex';
+}
+
+function closeVerifyForm() {
+    document.getElementById('verifyModal').style.display = 'none';
+}
+
+async function submitVerify() {
+    const name = document.getElementById('vName').value.trim();
+    const studentId = document.getElementById('vStudentId').value.trim();
+    const birth = document.getElementById('vBirth').value;
+
+    if (!name || !studentId || !birth) {
+        alert('모든 항목을 입력해주세요.');
+        return;
+    }
+
+    const res = await fetch(`/chat/rooms/${roomId}/verify`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, student_id: studentId, birth_date: birth}),
+    });
+
+    if (res.ok) {
+        const result = await res.json();
+        appendSystem(result.message);
+        closeVerifyForm();
+        if (result.verified) {
+            document.getElementById('verifyBtn').disabled = true;
+            document.getElementById('verifyBtn').textContent = '✅ 인증완료';
+            document.getElementById('verifyBar').querySelector('span').textContent = '✅ 본인인증이 완료되었습니다.';
+            document.getElementById('meetingBtn').disabled = false;
+            document.getElementById('meetingBtn').textContent = '📅 약속 잡기';
+            ws.send(JSON.stringify({type: 'message', content: '🔐 본인인증이 완료되었습니다.'}));
+        }
+    } else {
+        appendSystem('인증 요청 중 오류가 발생했습니다.');
+    }
+}
+
+async function markComplete() {
+    if (!confirm('찾기완료 처리하시겠습니까?')) return;
+    const res = await fetch(`/chat/rooms/${roomId}/complete`, {method: 'PATCH'});
+    if (res.ok) {
+        appendSystem('🎉 찾기완료 처리되었습니다!');
+        document.getElementById('completeBtn').disabled = true;
+    }
+}
+
+function showMeetingForm() {
+    document.getElementById('meetingModal').style.display = 'flex';
+}
+
+function closeMeetingForm() {
+    document.getElementById('meetingModal').style.display = 'none';
+}
+
+function submitMeeting() {
+    const date = document.getElementById('mDate').value;
+    const time = document.getElementById('mTime').value;
+    const place = document.getElementById('mPlace').value.trim();
+
+    if (!date || !time) {
+        alert('날짜와 시간을 선택해주세요.');
+        return;
+    }
+
+    let msg = `📅 약속 요청: ${date} ${time}`;
+    if (place) msg += ` | 장소: ${place}`;
+
+    ws.send(JSON.stringify({type: 'message', content: msg}));
+    closeMeetingForm();
+    appendSystem('약속 요청을 보냈습니다.');
+}
+
+loadRoomInfo();
+loadMessages();
+</script>
+{% endblock %}

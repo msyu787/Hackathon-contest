@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}채팅 입장 - Finder{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>💬 분실물 채팅</h1>
+    <p>습득자와 분실자가 대화할 수 있는 공간입니다.</p>
+</section>
+
+<div class="entry-form">
+    <h2>채팅방 만들기 / 입장하기</h2>
+    <div class="form-group">
+        <label>내 사용자 ID</label>
+        <input type="number" id="myId" value="1" min="1">
+    </div>
+    <div class="form-group">
+        <label>상대방 사용자 ID</label>
+        <input type="number" id="otherId" value="2" min="1">
+    </div>
+    <div class="form-group">
+        <label>분실물 ID (아무 숫자)</label>
+        <input type="number" id="itemId" value="1" min="1">
+    </div>
+    <button class="btn-chat" onclick="enterChat()">대화 시작하기</button>
+</div>
+
+<hr style="margin:30px 0;">
+
+<div class="entry-form">
+    <h2>기존 채팅방 바로 입장</h2>
+    <div class="form-group">
+        <label>내 사용자 ID</label>
+        <input type="number" id="directUserId" value="1" min="1">
+    </div>
+    <div class="form-group">
+        <label>채팅방 ID</label>
+        <input type="number" id="directRoomId" value="1" min="1">
+    </div>
+    <button class="btn-chat" onclick="directEnter()">입장</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function enterChat() {
+    const myId = parseInt(document.getElementById('myId').value);
+    const otherId = parseInt(document.getElementById('otherId').value);
+    const itemId = parseInt(document.getElementById('itemId').value);
+
+    if (myId === otherId) {
+        alert('본인과 대화할 수 없습니다.');
+        return;
+    }
+
+    const res = await fetch('/chat/rooms', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            lost_item_id: itemId,
+            finder_id: otherId,
+            seeker_id: myId
+        })
+    });
+
+    if (res.ok) {
+        const room = await res.json();
+        window.location.href = `/chat/${room.id}?user_id=${myId}`;
+    } else {
+        alert('채팅방 생성 실패');
+    }
+}
+
+function directEnter() {
+    const userId = document.getElementById('directUserId').value;
+    const roomId = document.getElementById('directRoomId').value;
+    window.location.href = `/chat/${roomId}?user_id=${userId}`;
+}
+</script>
+{% endblock %}

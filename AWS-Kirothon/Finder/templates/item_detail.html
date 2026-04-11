@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ item.caption_text }} - Finder{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+    <a href="/items" class="back-link">← 목록으로</a>
+    <div class="detail-card">
+        <img src="{{ item.image_path }}" alt="{{ item.caption_text }}" class="detail-img">
+        <div class="detail-info">
+            <span class="gallery-tag color-tag">{{ item.caption_color }}</span>
+            <span class="gallery-tag">{{ item.category }}</span>
+            {% if item.caption_details %}
+            <div class="detail-row">
+                <span class="detail-label">🔎 세부사항</span>
+                <span>{{ item.caption_details }}</span>
+            </div>
+            {% endif %}
+            <div class="detail-row">
+                <span class="detail-label">📍 발견 장소</span>
+                <span>{{ item.location }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">🕐 발견 시간</span>
+                <span>{{ item.found_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">📌 상태</span>
+                <span>{{ '찾기완료' if item.status == 'completed' else '찾는 중' }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+pydantic-settings
+python-jose[cryptography]
+bcrypt
+sentence-transformers
+hypothesis
+pytest
+pytest-asyncio
+pytest-cov
+python-multipart
+jinja2
+aiofiles
